@@ -1,0 +1,133 @@
+// Constants and message types shared by multiple APIs.
+
+syntax = "proto3";
+
+//////////////////////////////////////////////////////////////////////////////
+// Constants
+//////////////////////////////////////////////////////////////////////////////
+
+// Side of trading direction.
+enum Side {
+    BID = 0;    // i.e. buy
+    ASK = 1;    // i.e. sell
+}
+
+// Type of a position in a trader's portfolio.
+enum PositionType {
+    LONG = 0;
+    SHORT = 1;
+}
+
+// Common request type identifiers.
+enum RequestType {
+    NEW_ORDER = 0;
+    CANCEL_ORDER = 1;
+    MODIFY_ORDER = 2;   // reserved for future implementation.
+    INCREMENTAL_INFO = 3;
+    FULL_INFO = 4;
+}
+
+// Peacock-specific return codes.
+enum ResultCode {
+    OK = 0;
+
+    // 1-99: generic errors.
+
+    UNKNOWN_ERROR = 99;
+
+    // 1xx: are server-side errors
+
+    SERVICE_UNAVAILABLE = 100;
+
+    REGISTER_DISABLED = 120;
+
+    // 2xx: are client-side errors
+
+    INVALID_REQUEST = 200;
+    UNAUTHORIZED = 201;
+    UNSUBSCRIBED = 202;
+
+    TOO_MANY_REQUESTS = 210;
+    TOO_MANY_ORDERS = 211;
+
+    INVALID_ORDER = 220;
+    INVALID_BROKER_ID = 221;
+    INVALID_ORDER_ID = 222;
+    INVALID_TRADER_ID = 223;
+    INVALID_TRADER_NAME = 224;
+    INVALID_SYMBOL = 241;
+    INVALID_PRICE = 242;
+    INVALID_VOLUME = 243;
+    INVALID_SIDE = 244;
+    INVALID_POSITION = 245;
+
+    INSUFFICIENT_ASSETS = 260;
+
+    ACCOUNT_DISABLED = 270;
+    ON_MARGIN_CALL = 271;
+}
+
+// States of an order in its lifespan.
+enum OrderState {
+    // The order is submitted to the Exchange, but it is unknown
+    // whether the Exchange has accepted or rejected it yet.
+    ORDER_INITIAL = 0;
+
+    // The order is accepted by the Exchange.
+    ORDER_ACCEPTED = 1;
+
+    // The order is partially executed.
+    ORDER_TRADED = 2;
+
+    // The order is completedly executed.
+    ORDER_FINISHED = 3;
+
+    // The order has been cancelled by client before fully executed.
+    ORDER_CANCELLED = 4;
+
+    // The order has been rejected by the Exchange.
+    ORDER_REJECTED = 5;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Shared message types
+//////////////////////////////////////////////////////////////////////////////
+
+// A "void" message type for RPCs that do not require a request/response.
+message Empty {}
+
+// General response for a (possibly asynchronous) request.
+message RpcResponse {  // TODO: rename to AsyncResponse?
+    RequestType request_type = 1;
+    int32 trader_id = 2;
+    int64 order_id = 3;
+    ResultCode result_code = 4;
+}
+
+// Basic info about an instrument.
+message InstrumentInfo {
+    string symbol = 1;
+    string name = 2;
+    double init_price = 3;
+    double tick = 4;
+    double last_price = 5;
+}
+
+// Pairs of instrument symbols and latest prices.
+message InstrumentInfoList {
+    repeated InstrumentInfo instruments = 1;
+}
+
+// A single price level in an orderbook.
+message QuoteRecord {
+    double price = 1;
+    int32 volume = 2;
+    int32 order_count = 3;
+}
+
+// A single matched trade price and volume in an order-matching process.
+message TradeRecord {
+    double timestamp = 1;
+    double price = 2;
+    int32 volume = 3;
+}

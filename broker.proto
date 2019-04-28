@@ -1,0 +1,209 @@
+// API for Peacock Broker module.
+
+syntax = "proto3";
+
+import "common.proto";
+
+//////////////////////////////////////////////////////////////////////////////
+// Services
+//////////////////////////////////////////////////////////////////////////////
+
+// Public API for traders
+service Broker {
+    rpc info (Empty) returns (BrokerInfo);
+
+    // A trader must first register at the Broker and acquire a valid trader
+    // ID and PIN.
+    rpc register (RegisterRequest) returns (TraderResponse);
+
+    // Submits a new order.
+    rpc new_order (TraderRequest) returns (TraderResponse);
+
+    // Cancels a previously submitted order.
+    rpc cancel_order (TraderRequest) returns (TraderResponse);
+
+    // Requests a full update of the trader data.
+    rpc get_trader (TraderRequest) returns (TraderResponse);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Request Messsages
+//////////////////////////////////////////////////////////////////////////////
+
+// Info required to register a new Trader account.
+message RegisterRequest {
+    string trader_name = 1;
+    string trader_pin = 2;
+
+    // Initial cash might be ignored by the Broker.
+    double init_cash = 3;
+}
+
+// A request with just the trader's credentials.
+message LoginRequest {
+    int32 trader_id = 1;
+    string trader_pin = 2;
+}
+
+// Request to add a new order to the Broker.
+message TraderRequest {
+    int32 trader_id = 1;
+    string trader_pin = 2;
+
+    RequestType request_type = 3;
+
+    // Required only for CANCEL_ORDER:
+
+    int64 order_id = 4;
+
+    // Required only for NEW_ORDER:
+
+    Side side = 6;  // ASK (sell) or BID (buy).
+
+    string symbol = 7;
+
+    int32 volume = 8;
+
+    double price = 9;   // Ignored if is_market is True.
+
+    bool is_market = 10;
+
+    PositionType pos_type = 11; // LONG or SHORT.
+
+    double orig_timestamp = 12; // for tick-to-trade lag test
+}
+
+
+//////////////////////////////////////////////////////////////////////////////
+// Response Messsages
+//////////////////////////////////////////////////////////////////////////////
+
+message BrokerInfo {
+    int32 id = 1;
+    string name = 2;
+}
+
+message TraderInfo {
+    int32 broker_id = 1;
+    int32 trader_id = 2;
+    string trader_pin = 3;
+    string trader_name = 4;
+    double commission_rate = 5;
+    double margin_rate = 6;
+}
+
+message TraderAccount {
+    bool is_alive = 1;
+
+    double total_cash = 2;
+    double unrealized_pnl = 3;
+    double locked_cash = 4;     // cash in open orders
+    double occupied_cash = 5;
+
+    double realized_pnl = 6;
+    double commission = 7;
+}
+
+message PositionInfo {
+    int32 volume = 1;           // closeable volume
+    int32 locked_volume = 2;    // volume in close orders
+    double occupied_cash = 3;       // locked cash
+    double avg_price = 4;      // average price
+    double unrealized_pnl = 5;  // unrealized profit/loss
+    double realized_pnl = 6;
+}
+
+message PositionList {
+    map<string, PositionInfo> long_positions = 1;
+    map<string, PositionInfo> short_positions = 2;
+}
+
+message OrderInfo {
+    // Static properties
+    int64 order_id = 1;
+    string symbol = 2;
+    Side side = 3;
+    PositionType pos_type = 4;
+    double init_price = 5;
+    int32 init_volume = 6;
+
+    // Dynamic properties
+    OrderState state = 7;
+    int32 volume = 8;
+    double avg_price = 9;
+    double commission = 10;
+}
+
+message OrderList {
+    map<int64, OrderInfo> orders = 1;
+}
+
+message CompactMarketMakeRecord {
+    string symbol = 1;
+    double percent = 2;
+}
+
+message VolumeRecord {
+    string symbol = 1;
+    int32 volume = 2;
+}
+
+message TraderResponse {
+    double timestamp = 1;
+
+    ResultCode result_code = 2;
+
+    TraderInfo info = 3;
+
+    TraderAccount account = 4;
+
+    PositionList positions = 5;
+
+    OrderList orders = 6;
+
+    double pnl = 7;
+    // Market make complete percent
+    repeated CompactMarketMakeRecord market_records = 8;
+
+    repeated VolumeRecord volume_records = 9;
+}
+
+// Provides access to real-time market data
+service MarketData {
+    // Returns static properties of the instruments in the Exchange.
+    rpc list_instruments (Empty) returns (InstrumentInfoList);
+
+    rpc subscribe (Empty) returns (stream MarketSnapshot);
+}
+
+// Snapshot of an instrument's orderbook.
+message OrderBookSnapshot {
+    string symbol = 1;
+    double timestamp = 2;
+
+    double last_price = 4;
+    int64 traded_volume = 5;
+
+    int64 bid_volume = 6;
+    int64 ask_volume = 7;
+
+    int32 bid_order_count = 8;
+    int32 ask_order_count = 9;
+
+    int32 bid_depth = 10;
+    int32 ask_depth = 11;
+
+    repeated QuoteRecord bid_levels = 12;
+    repeated QuoteRecord ask_levels = 13;
+
+    // Latest trade records
+    repeated TradeRecord last_trades = 14;
+
+    double deliver_price = 15;
+}
+
+// Snapshot of multiple instrument orderbooks.
+message MarketSnapshot {
+    bool is_incremental = 1;
+    repeated OrderBookSnapshot instruments = 2;
+}
